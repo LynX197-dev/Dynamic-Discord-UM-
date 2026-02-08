@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Plugin info -->
+    <groupId>com.dynamic</groupId>
+    <artifactId>DiscordUM</artifactId>
+    <version>1.0</version>
+    <packaging>jar</packaging>
+
+    <name>Dynamic Discord UM+</name>
+    <description>Discord Utility Manager plugin with Node.js integration</description>
+
+    <!-- ======================= -->
+    <!-- Java / Compiler config -->
+    <!-- ======================= -->
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
+    </properties>
+
+    <!-- ======================= -->
+    <!-- Repositories -->
+    <!-- ======================= -->
+    <repositories>
+        <repository>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+        </repository>
+    </repositories>
+
+    <!-- ======================= -->
+    <!-- Dependencies -->
+    <!-- ======================= -->
+    <dependencies>
+
+        <!-- Spigot API (1.21.x) -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.21-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Optional: JSON parsing (safe & lightweight) -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+
+        <!-- Apache Commons Compress (for .tar.xz extraction) -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.26.1</version>
+        </dependency>
+        <!-- XZ for Java (Required by Commons Compress for XZ support) -->
+        <dependency>
+            <groupId>org.tukaani</groupId>
+            <artifactId>xz</artifactId>
+            <version>1.9</version>
+        </dependency>
+        <!-- ZT-ZIP (for ZipUtil) -->
+        <dependency>
+            <groupId>org.zeroturnaround</groupId>
+            <artifactId>zt-zip</artifactId>
+            <version>1.17</version>
+        </dependency>
+    </dependencies>
+
+    <!-- ======================= -->
+    <!-- Build -->
+    <!-- ======================= -->
+    <build>
+        <finalName>Dynamic-Discord-UM+</finalName>
+
+        <plugins>
+
+            <!-- Java 21 compiler -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>21</release>
+                </configuration>
+            </plugin>
+
+            <!-- Clean JAR (no shading Spigot) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+            </plugin>
+
+            <!-- Shade Plugin: Bundles dependencies into the JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

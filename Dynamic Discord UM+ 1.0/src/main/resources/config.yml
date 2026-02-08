@@ -1,0 +1,22 @@
+# Dynamic Discord UM+ Configuration
+# Configuration file for the Minecraft Server Status Bot
+bot:
+  token: "DISCORD_BOT_TOKEN"
+  channel-id: "YOUR_CHANNEL_ID"
+
+# Server configuration
+server:
+  name: "YOUR_SERVER_NAME"
+  ip: "YOUR_SERVER_IP"
+  port: 25565 #Default Bedrock port is 25565, change if needed
+  type: "java" #Options: "java" or "bedrock"
+
+# Optional: Customize the embed appearance
+embed:
+  online-color: "#00FF7F" #Spring Green
+  offline-color: "#FF0000"  #Red
+  show-banner: false  #Optional: Set to true to display a server banner in the embed
+  banner-url: "YOUR_BANNER_URL" #Optional: URL to a server banner image
+
+# Update interval in seconds (how often the bot checks the server status)
+update-interval: 30
