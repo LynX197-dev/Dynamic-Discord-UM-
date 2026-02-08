@@ -221,6 +221,8 @@ public void onDisable() {
                     getConfig().getString("embed.offline-color"),
                     String.valueOf(getConfig().getBoolean("embed.show-banner")),
                     getConfig().getString("embed.banner-url"),
+                    String.valueOf(getConfig().getBoolean("embed.show-title-image")),
+                    getConfig().getString("embed.title-image-url"),
 
                     String.valueOf(getConfig().getInt("update-interval")));
 

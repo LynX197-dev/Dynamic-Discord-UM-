@@ -17,6 +17,8 @@ embed:
   offline-color: "#FF0000"  #Red
   show-banner: false  #Optional: Set to true to display a server banner in the embed
   banner-url: "YOUR_BANNER_URL" #Optional: URL to a server banner image
+  show-title-image: false #Optional: Set to true to display a thumbnail/title image
+  title-image-url: "YOUR_TITLE_IMAGE_URL" #Optional: URL to the thumbnail image
 
 # Update interval in seconds (how often the bot checks the server status)
 update-interval: 30

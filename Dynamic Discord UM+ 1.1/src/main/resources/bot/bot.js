@@ -17,6 +17,8 @@ const [
   OFFLINE_COLOR,
   SHOW_BANNER,
   BANNER_URL,
+  SHOW_TITLE_IMAGE,
+  TITLE_IMAGE_URL,
 
   UPDATE_INTERVAL,
 ] = process.argv;
@@ -24,6 +26,7 @@ const [
 const PORT = Number(SERVER_PORT);
 const INTERVAL = Number(UPDATE_INTERVAL) * 1000;
 const SHOW_BANNER_BOOL = SHOW_BANNER === "true";
+const SHOW_TITLE_IMAGE_BOOL = SHOW_TITLE_IMAGE === "true";
 
 const ONLINE_COLOR_INT = parseInt(ONLINE_COLOR.replace("#", ""), 16);
 const OFFLINE_COLOR_INT = parseInt(OFFLINE_COLOR.replace("#", ""), 16);
@@ -36,6 +39,8 @@ const client = new Client({
 let statusMessageId = null;
 const botStartTime = Date.now();
 let cachedCountry = null;
+let lastDowntime = "N/A";
+let lastOfflineTime = null;
 
 /* ================= READY ================= */
 client.once("clientReady", async () => {
@@ -46,7 +51,23 @@ client.once("clientReady", async () => {
   // Find pinned status message (if exists)
   const pinned = await channel.messages.fetchPinned();
   const old = pinned.find((m) => m.author.id === client.user.id);
-  if (old) statusMessageId = old.id;
+  if (old) {
+    statusMessageId = old.id;
+
+    if (old.embeds.length > 0) {
+      const embed = old.embeds[0];
+
+      const downField = embed.fields.find(
+        (f) => f.name === "⏱ Previous Downtime",
+      );
+      if (downField) lastDowntime = downField.value;
+
+      const statusField = embed.fields.find((f) => f.name === "🔴 Status");
+      if (statusField && statusField.value === "OFFLINE" && embed.timestamp) {
+        lastOfflineTime = new Date(embed.timestamp).getTime();
+      }
+    }
+  }
 
   await updateStatus();
   setInterval(updateStatus, INTERVAL);
@@ -58,12 +79,29 @@ async function updateStatus() {
   try {
     const channel = await client.channels.fetch(CHANNEL_ID);
     let embed;
+    let isOnline = false;
+    let status = null;
 
     try {
       // Try to ping the server
-      embed = await buildOnlineEmbed();
+      status =
+        SERVER_TYPE === "bedrock"
+          ? await util.statusBedrock(SERVER_IP, PORT)
+          : await util.status(SERVER_IP, PORT);
+      isOnline = true;
     } catch (pingError) {
-      // If ping fails (server stopped), use the offline embed
+      isOnline = false;
+    }
+
+    if (isOnline) {
+      if (lastOfflineTime) {
+        const diff = Date.now() - lastOfflineTime;
+        lastDowntime = formatUptime(diff);
+        lastOfflineTime = null;
+      }
+      embed = await buildOnlineEmbed(status);
+    } else {
+      if (!lastOfflineTime) lastOfflineTime = Date.now();
       embed = await buildOfflineEmbed();
     }
 
@@ -89,17 +127,14 @@ async function buildOfflineEmbed() {
       { name: "🌐 Address", value: `${SERVER_IP}:${PORT}`, inline: false },
       { name: "👥 Players", value: `0/0`, inline: true },
       { name: "⏱ Uptime", value: "Offline", inline: true },
+      { name: "⏱ Previous Downtime", value: lastDowntime, inline: true },
     )
-    .setTimestamp()
+    .setTimestamp(lastOfflineTime || Date.now())
+    .setThumbnail(SHOW_TITLE_IMAGE_BOOL ? TITLE_IMAGE_URL : null)
     .setImage(SHOW_BANNER_BOOL ? BANNER_URL : null);
 }
 
-async function buildOnlineEmbed() {
-  const status =
-    SERVER_TYPE === "bedrock"
-      ? await util.statusBedrock(SERVER_IP, PORT)
-      : await util.status(SERVER_IP, PORT);
-
+async function buildOnlineEmbed(status) {
   const uptime = formatUptime(Date.now() - botStartTime);
 
   if (!cachedCountry) {
@@ -123,7 +158,7 @@ async function buildOnlineEmbed() {
       { name: "🌍 Country", value: cachedCountry || "Unknown", inline: true },
       {
         name: "📦 Version",
-        value: status.version.name || "Unknown",
+        value: status.version.name || "Somewhere on Earth",
         inline: true,
       },
       { name: "📶 Ping", value: `${status.roundTripLatency}ms`, inline: true },
@@ -133,8 +168,10 @@ async function buildOnlineEmbed() {
         inline: true,
       },
       { name: "⏱ Uptime", value: uptime, inline: true },
+      { name: "⏱ Previous Downtime", value: lastDowntime, inline: true },
     )
     .setTimestamp()
+    .setThumbnail(SHOW_TITLE_IMAGE_BOOL ? TITLE_IMAGE_URL : null)
     .setImage(SHOW_BANNER_BOOL ? BANNER_URL : null);
 }
 /* =========================================== */
@@ -145,6 +182,7 @@ async function shutdown(reason) {
   try {
     const channel = await client.channels.fetch(CHANNEL_ID);
     if (statusMessageId) {
+      if (!lastOfflineTime) lastOfflineTime = Date.now();
       const offlineEmbed = await buildOfflineEmbed();
       const msg = await channel.messages.fetch(statusMessageId);
       // 'await' is critical here so the process doesn't die mid-upload
