@@ -21,6 +21,10 @@ const [
   TITLE_IMAGE_URL,
 
   UPDATE_INTERVAL,
+  ONLINE_PING_ENABLED,
+  ONLINE_PING_ROLE_ID,
+  OFFLINE_PING_ENABLED,
+  OFFLINE_PING_ROLE_ID,
 ] = process.argv;
 
 const PORT = Number(SERVER_PORT);
@@ -28,6 +32,8 @@ const INTERVAL = Number(UPDATE_INTERVAL) * 1000;
 const SHOW_BANNER_BOOL = SHOW_BANNER === "true";
 const SHOW_TITLE_IMAGE_BOOL = SHOW_TITLE_IMAGE === "true";
 
+const ENABLE_ONLINE_PING = ONLINE_PING_ENABLED === "true";
+const ENABLE_OFFLINE_PING = OFFLINE_PING_ENABLED === "true";
 const ONLINE_COLOR_INT = parseInt(ONLINE_COLOR.replace("#", ""), 16);
 const OFFLINE_COLOR_INT = parseInt(OFFLINE_COLOR.replace("#", ""), 16);
 /* ============================================= */
@@ -41,12 +47,34 @@ const botStartTime = Date.now();
 let cachedCountry = null;
 let lastDowntime = "N/A";
 let lastOfflineTime = null;
+let serverStartTime = null;
+let lastUptime = "N/A";
+let lastKnownStatus = null;
+let lastPingMessageId = null;
 
 /* ================= READY ================= */
 client.once("clientReady", async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
   const channel = await client.channels.fetch(CHANNEL_ID);
+  console.log(`🔔 Pings: Online=${ENABLE_ONLINE_PING} (${ONLINE_PING_ROLE_ID}), Offline=${ENABLE_OFFLINE_PING} (${OFFLINE_PING_ROLE_ID})`);
+
+  // Find last ping message to manage deletion (avoid spam)
+  try {
+    const messages = await channel.messages.fetch({ limit: 20 });
+    const lastPing = messages.find(
+      (m) =>
+        m.author.id === client.user.id &&
+        !m.pinned &&
+        (m.content.includes("Server is now ONLINE") ||
+          m.content.includes("Server is now OFFLINE")),
+    );
+    if (lastPing) {
+      lastPingMessageId = lastPing.id;
+    }
+  } catch (e) {
+    console.log("⚠️ Could not fetch recent messages:", e.message);
+  }
 
   // Find pinned status message (if exists)
   const pinned = await channel.messages.fetchPinned();
@@ -62,10 +90,18 @@ client.once("clientReady", async () => {
       );
       if (downField) lastDowntime = downField.value;
 
+      const uptimeField = embed.fields.find(
+        (f) => f.name === "⏱ Previous Uptime",
+      );
+      if (uptimeField) lastUptime = uptimeField.value;
+
       const statusField = embed.fields.find((f) => f.name === "🔴 Status");
       if (statusField && statusField.value === "OFFLINE" && embed.timestamp) {
         lastOfflineTime = new Date(embed.timestamp).getTime();
       }
+
+      const statusFieldColor = embed.fields.find((f) => f.name === "🔴 Status" || f.name === "🟢 Status");
+      if (statusFieldColor) lastKnownStatus = statusFieldColor.value;
     }
   }
 
@@ -93,7 +129,35 @@ async function updateStatus() {
       isOnline = false;
     }
 
+    const currentStatusStr = isOnline ? "ONLINE" : "OFFLINE";
+
+    if (lastKnownStatus && lastKnownStatus !== currentStatusStr) {
+      // 1. Delete previous ping if exists
+      if (lastPingMessageId) {
+        try {
+          const oldPing = await channel.messages.fetch(lastPingMessageId);
+          if (oldPing) await oldPing.delete();
+        } catch (e) {
+          // Message might already be deleted
+        }
+        lastPingMessageId = null;
+      }
+
+      // 2. Send new ping
+      let pingContent = null;
+      if (currentStatusStr === "ONLINE" && ENABLE_ONLINE_PING) pingContent = `<@&${ONLINE_PING_ROLE_ID}> Server is now ONLINE!`;
+      else if (currentStatusStr === "OFFLINE" && ENABLE_OFFLINE_PING) pingContent = `<@&${OFFLINE_PING_ROLE_ID}> Server is now OFFLINE!`;
+
+      if (pingContent) {
+        const sentMsg = await channel.send({ content: pingContent });
+        lastPingMessageId = sentMsg.id;
+      }
+    }
+    lastKnownStatus = currentStatusStr;
+
     if (isOnline) {
+      if (!serverStartTime) serverStartTime = Date.now();
+
       if (lastOfflineTime) {
         const diff = Date.now() - lastOfflineTime;
         lastDowntime = formatUptime(diff);
@@ -101,6 +165,12 @@ async function updateStatus() {
       }
       embed = await buildOnlineEmbed(status);
     } else {
+      if (serverStartTime) {
+        const diff = Date.now() - serverStartTime;
+        lastUptime = formatUptime(diff);
+        serverStartTime = null;
+      }
+
       if (!lastOfflineTime) lastOfflineTime = Date.now();
       embed = await buildOfflineEmbed();
     }
@@ -126,7 +196,7 @@ async function buildOfflineEmbed() {
       { name: "🔴 Status", value: "OFFLINE", inline: false },
       { name: "🌐 Address", value: `${SERVER_IP}:${PORT}`, inline: false },
       { name: "👥 Players", value: `0/0`, inline: true },
-      { name: "⏱ Uptime", value: "Offline", inline: true },
+      { name: "⏱ Previous Uptime", value: lastUptime, inline: true },
       { name: "⏱ Previous Downtime", value: lastDowntime, inline: true },
     )
     .setTimestamp(lastOfflineTime || Date.now())
@@ -135,7 +205,7 @@ async function buildOfflineEmbed() {
 }
 
 async function buildOnlineEmbed(status) {
-  const uptime = formatUptime(Date.now() - botStartTime);
+  const uptime = formatUptime(Date.now() - (serverStartTime || Date.now()));
 
   if (!cachedCountry) {
     try {
@@ -180,7 +250,23 @@ async function buildOnlineEmbed(status) {
 async function shutdown(reason) {
   console.log(`🛑 Shutdown signal: ${reason}`);
   try {
+    if (serverStartTime) {
+      const diff = Date.now() - serverStartTime;
+      lastUptime = formatUptime(diff);
+      serverStartTime = null;
+    }
+
     const channel = await client.channels.fetch(CHANNEL_ID);
+    if (lastKnownStatus === "ONLINE" && ENABLE_OFFLINE_PING) {
+      if (lastPingMessageId) {
+        try {
+          const oldPing = await channel.messages.fetch(lastPingMessageId);
+          if (oldPing) await oldPing.delete();
+        } catch (e) {}
+      }
+      await channel.send({ content: `<@&${OFFLINE_PING_ROLE_ID}> Server is now OFFLINE!` });
+    }
+
     if (statusMessageId) {
       if (!lastOfflineTime) lastOfflineTime = Date.now();
       const offlineEmbed = await buildOfflineEmbed();

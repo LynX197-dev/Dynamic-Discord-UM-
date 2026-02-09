@@ -191,10 +191,31 @@ public void onDisable() {
 
     private void runNpmInstall() {
         try {
-            ProcessBuilder pb = new ProcessBuilder(
-                    detectOS() == OS.WINDOWS ? "npm.cmd" : "npm",
-                    "install");
+            java.util.List<String> command = new java.util.ArrayList<>();
+            File nodeDir = new File(getDataFolder(), "node");
+
+            if (detectOS() == OS.WINDOWS) {
+                command.add(new File(nodeDir, "npm.cmd").getAbsolutePath());
+            } else {
+                command.add(new File(nodeDir, "bin/node").getAbsolutePath());
+                command.add(new File(nodeDir, "lib/node_modules/npm/bin/npm-cli.js").getAbsolutePath());
+            }
+            command.add("install");
+
+            ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(getDataFolder());
+
+            java.util.Map<String, String> env = pb.environment();
+            String pathVar = "PATH";
+            for (String key : env.keySet()) {
+                if (key.equalsIgnoreCase("path")) {
+                    pathVar = key;
+                    break;
+                }
+            }
+            String nodeBin = detectOS() == OS.WINDOWS ? nodeDir.getAbsolutePath() : new File(nodeDir, "bin").getAbsolutePath();
+            env.put(pathVar, nodeBin + File.pathSeparator + env.getOrDefault(pathVar, ""));
+
             pb.inheritIO();
             pb.start().waitFor();
         } catch (Exception e) {
@@ -224,7 +245,12 @@ public void onDisable() {
                     String.valueOf(getConfig().getBoolean("embed.show-title-image")),
                     getConfig().getString("embed.title-image-url"),
 
-                    String.valueOf(getConfig().getInt("update-interval")));
+                    String.valueOf(getConfig().getInt("update-interval")),
+
+                    String.valueOf(getConfig().getBoolean("notifications.online.enabled")),
+                    getConfig().getString("notifications.online.role-id"),
+                    String.valueOf(getConfig().getBoolean("notifications.offline.enabled")),
+                    getConfig().getString("notifications.offline.role-id"));
 
             pb.directory(getDataFolder());
             pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
