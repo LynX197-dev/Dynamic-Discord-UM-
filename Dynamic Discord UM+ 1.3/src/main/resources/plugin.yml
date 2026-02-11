@@ -1,0 +1,12 @@
+name: DiscordUM
+version: 1.0
+main: com.dynamicdiscordumplus.DiscordUM
+api-version: 1.20
+commands:
+  dcum:
+    description: Reload command for DiscordUM
+    usage: /dcum reload
+permissions:
+  discordum.reload:
+    description: Allows reloading the plugin
+    default: op

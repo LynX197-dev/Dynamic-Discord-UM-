@@ -25,12 +25,15 @@ const [
   ONLINE_PING_ROLE_ID,
   OFFLINE_PING_ENABLED,
   OFFLINE_PING_ROLE_ID,
+  FOOTER_ENABLED,
+  FOOTER_TEXT,
 ] = process.argv;
 
 const PORT = Number(SERVER_PORT);
 const INTERVAL = Number(UPDATE_INTERVAL) * 1000;
 const SHOW_BANNER_BOOL = SHOW_BANNER === "true";
 const SHOW_TITLE_IMAGE_BOOL = SHOW_TITLE_IMAGE === "true";
+const FOOTER_ENABLED_BOOL = FOOTER_ENABLED === "true";
 
 const ENABLE_ONLINE_PING = ONLINE_PING_ENABLED === "true";
 const ENABLE_OFFLINE_PING = OFFLINE_PING_ENABLED === "true";
@@ -189,7 +192,7 @@ async function updateStatus() {
 }
 
 async function buildOfflineEmbed() {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(OFFLINE_COLOR_INT)
     .setTitle(`🌍 ${SERVER_NAME} — Server Status`)
     .addFields(
@@ -202,6 +205,12 @@ async function buildOfflineEmbed() {
     .setTimestamp(lastOfflineTime || Date.now())
     .setThumbnail(SHOW_TITLE_IMAGE_BOOL ? TITLE_IMAGE_URL : null)
     .setImage(SHOW_BANNER_BOOL ? BANNER_URL : null);
+
+  if (FOOTER_ENABLED_BOOL && FOOTER_TEXT) {
+    embed.setFooter({ text: FOOTER_TEXT });
+  }
+
+  return embed;
 }
 
 async function buildOnlineEmbed(status) {
@@ -219,7 +228,7 @@ async function buildOnlineEmbed(status) {
     }
   }
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(ONLINE_COLOR_INT)
     .setTitle(`🌍 ${SERVER_NAME} — Server Status`)
     .addFields(
@@ -243,6 +252,12 @@ async function buildOnlineEmbed(status) {
     .setTimestamp()
     .setThumbnail(SHOW_TITLE_IMAGE_BOOL ? TITLE_IMAGE_URL : null)
     .setImage(SHOW_BANNER_BOOL ? BANNER_URL : null);
+
+  if (FOOTER_ENABLED_BOOL && FOOTER_TEXT) {
+    embed.setFooter({ text: FOOTER_TEXT });
+  }
+
+  return embed;
 }
 /* =========================================== */
 

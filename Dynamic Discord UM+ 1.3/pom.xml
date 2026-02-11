@@ -9,7 +9,7 @@
     <!-- Plugin info -->
     <groupId>com.dynamic</groupId>
     <artifactId>DiscordUM</artifactId>
-    <version>1.0</version>
+    <version>1.3</version>
     <packaging>jar</packaging>
 
     <name>Dynamic Discord UM+</name>

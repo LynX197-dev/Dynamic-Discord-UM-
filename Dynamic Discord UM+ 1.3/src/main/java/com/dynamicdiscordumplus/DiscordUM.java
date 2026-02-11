@@ -5,13 +5,20 @@ import org.apache.commons.compress.archivers.tar.*;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.bukkit.Bukkit;
 import org.zeroturnaround.zip.ZipUtil;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 
 import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Collections;
+import java.util.List;
 
-public class DiscordUM extends JavaPlugin {
+public class DiscordUM extends JavaPlugin implements CommandExecutor, TabCompleter {
 
     private Process botProcess;
 
@@ -36,39 +43,82 @@ public class DiscordUM extends JavaPlugin {
 
         startBot();
 
+        // Register command
+        PluginCommand command = getCommand("dcum");
+        if (command != null) {
+            command.setExecutor(this);
+            command.setTabCompleter(this);
+        } else {
+            getLogger().warning("Could not register /dcum command! Make sure it's in your plugin.yml");
+        }
+
         // ASCII
         Bukkit.getConsoleSender().sendMessage(AsciiBanner.DESIGN_CREDIT);
     }
 
     @Override
-public void onDisable() {
-    if (botProcess != null && botProcess.isAlive()) {
-        getLogger().info("Updating Discord status to OFFLINE...");
-        
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(botProcess.getOutputStream()))) {
-            writer.write("STOP");
-            writer.newLine();
-            writer.flush();
-        } catch (IOException e) {
-            // Fallback if writing fails
-            botProcess.destroy();
-        }
-        
-        try {
-            // This FORCES the Minecraft server to wait for the bot
-            boolean cleanExit = botProcess.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
-            
-            if (cleanExit) {
-                getLogger().info("Discord status updated and bot closed.");
-            } else {
-                getLogger().warning("Bot took too long to update; forcing close.");
-                botProcess.destroyForcibly();
+    public void onDisable() {
+        stopBot();
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            if (!sender.hasPermission("discordum.reload")) {
+                sender.sendMessage("§cYou do not have permission to use this command.");
+                return true;
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            reload();
+            sender.sendMessage("§aDynamic Discord UM+ reloaded successfully.");
+            return true;
+        }
+        sender.sendMessage("§cUsage: /dcum reload");
+        return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            return Collections.singletonList("reload");
+        }
+        return Collections.emptyList();
+    }
+
+    public void reload() {
+        getLogger().info("Reloading Dynamic Discord UM+...");
+        stopBot();
+        reloadConfig();
+        startBot();
+        getLogger().info("Reload complete.");
+    }
+
+    private void stopBot() {
+        if (botProcess != null && botProcess.isAlive()) {
+            getLogger().info("Updating Discord status to OFFLINE...");
+
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(botProcess.getOutputStream()))) {
+                writer.write("STOP");
+                writer.newLine();
+                writer.flush();
+            } catch (IOException e) {
+                botProcess.destroy();
+            }
+
+            try {
+                boolean cleanExit = botProcess.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+                if (cleanExit) {
+                    getLogger().info("Discord status updated and bot closed.");
+                } else {
+                    getLogger().warning("Bot took too long to update; forcing close.");
+                    botProcess.destroyForcibly();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Thread.currentThread().interrupt();
+            }
+            botProcess = null;
         }
     }
-}
 
     /* ================= OS ================= */
 
@@ -250,7 +300,10 @@ public void onDisable() {
                     String.valueOf(getConfig().getBoolean("notifications.online.enabled")),
                     getConfig().getString("notifications.online.role-id"),
                     String.valueOf(getConfig().getBoolean("notifications.offline.enabled")),
-                    getConfig().getString("notifications.offline.role-id"));
+                    getConfig().getString("notifications.offline.role-id"),
+
+                    String.valueOf(getConfig().getBoolean("embed.footer.enabled")),
+                    getConfig().getString("embed.footer.text"));
 
             pb.directory(getDataFolder());
             pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);

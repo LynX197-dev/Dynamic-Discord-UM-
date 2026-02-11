@@ -4,7 +4,7 @@
   <groupId>com.dynamic</groupId>
   <artifactId>DiscordUM</artifactId>
   <name>Dynamic Discord UM+</name>
-  <version>1.0</version>
+  <version>1.3</version>
   <description>Discord Utility Manager plugin with Node.js integration</description>
   <build>
     <finalName>Dynamic-Discord-UM+</finalName>
