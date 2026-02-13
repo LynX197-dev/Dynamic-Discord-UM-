@@ -1,3 +1,5 @@
+🌐 **WEBSITE:** https://lynx-development.lynx197.qzz.io/
+
 # 🔌 Dynamic Discord UM+
 
 **A Self-Contained, High-Performance Discord Status Bot for Minecraft**
